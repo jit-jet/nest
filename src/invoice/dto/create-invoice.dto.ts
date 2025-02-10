@@ -1,9 +1,10 @@
 // src/invoice/dto/create-invoice.dto.ts
-import { IsString, IsNumber, IsDate, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsNumber, IsDate, IsArray, ValidateNested, IsNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class ItemDto {
   @IsString()
+  @IsNotEmpty()
   sku: string;
 
   @IsNumber()
@@ -12,12 +13,14 @@ class ItemDto {
 
 export class CreateInvoiceDto {
   @IsString()
+  @IsNotEmpty() 
   customer: string;
 
   @IsNumber()
   amount: number;
 
   @IsString()
+  @IsNotEmpty() 
   reference: string;
 
   @Type(() => Date)
@@ -25,7 +28,7 @@ export class CreateInvoiceDto {
   date: Date;
 
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => ItemDto)
+  @ValidateNested({ each: true }) 
+  @Type(() => ItemDto) 
   items: ItemDto[];
 }

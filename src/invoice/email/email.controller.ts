@@ -9,7 +9,7 @@ export class EmailController {
   @Get('status')
   @HttpCode(HttpStatus.OK)
   getStatus() {
-    return { status: 'Email service is running' };
+    return { message: 'Email service is running' };
   }
 
   @Post('send')

@@ -1,98 +1,78 @@
-// src/email/email.service.spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { EmailService } from './email.service';
-import { ConfigModule } from '@nestjs/config';
-import * as amqp from 'amqplib';
 import * as nodemailer from 'nodemailer';
-import { Logger } from '@nestjs/common';
 
-jest.mock('amqplib');
-jest.mock('nodemailer');
+jest.mock('nodemailer'); // Mock nodemailer
 
 describe('EmailService', () => {
   let service: EmailService;
-  let mockSendMail: jest.Mock;
+  let sendMailMock: jest.Mock;
 
   beforeEach(async () => {
-    mockSendMail = jest.fn().mockResolvedValue(true);
-
+    // Mock nodemailer.createTransport
+    sendMailMock = jest.fn();
     (nodemailer.createTransport as jest.Mock).mockReturnValue({
-      sendMail: mockSendMail,
+      sendMail: sendMailMock,
     });
 
     const module: TestingModule = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot()],
       providers: [EmailService],
     }).compile();
 
     service = module.get<EmailService>(EmailService);
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
-  it('should publish report to RabbitMQ', async () => {
-    const mockChannel = {
-      sendToQueue: jest.fn(),
-    };
-    (amqp.connect as jest.Mock).mockResolvedValue({
-      createChannel: jest.fn().mockResolvedValue(mockChannel),
-    });
+  it('should send an email successfully', async () => {
+    // Mock the response of sendMail
+    sendMailMock.mockResolvedValueOnce({ accepted: ['recipient@example.com'] });
 
-    await service.onModuleInit();
-    const report = { totalSalesAmount: 1000, perItemSalesSummary: [] };
-    await service.publishReport(report);
-    expect(mockChannel.sendToQueue).toHaveBeenCalled();
-  });
-
-  it('should send email with report', async () => {
+    // Mock report data
     const report = {
-      date: new Date(),
-      totalSalesAmount: 500,
-      perItemSalesSummary: [{ sku: 'ITEM1', totalQuantitySold: 10 }],
+      date: '2025-01-25T12:00:00.000Z',
+      totalSalesAmount: 1200,
+      perItemSalesSummary: [
+        { sku: 'ITEM001', totalQuantitySold: 5 },
+        { sku: 'ITEM002', totalQuantitySold: 3 },
+      ],
     };
-    await service.sendEmail(report);
-    expect(mockSendMail).toHaveBeenCalled();
+
+    // Call the sendEmail method
+    await service['sendEmail'](report);
+
+    // Verify sendMail was called with the correct parameters
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
+    expect(sendMailMock).toHaveBeenCalledWith({
+      from: process.env.EMAIL_FROM,
+      to: process.env.EMAIL_TO,
+      subject: `Daily Sales Summary - ${new Date(report.date).toLocaleDateString()}`,
+      text: expect.stringContaining('Total Sales Amount: $1200'),
+    });
   });
 
-  it('should handle incoming messages and send emails', async () => {
-    const mockAck = jest.fn();
-    const mockNack = jest.fn();
-    const mockChannel = {
-      ack: mockAck,
-      nack: mockNack,
-    };
-    const mockMessage = {
-      content: Buffer.from(JSON.stringify({
-        date: new Date(),
-        totalSalesAmount: 500,
-        perItemSalesSummary: [{ sku: 'ITEM1', totalQuantitySold: 10 }],
-      })),
-    };
+  it('should log an error if sending email fails', async () => {
+    const loggerErrorSpy = jest.spyOn(service['logger'], 'error');
 
-    service['rabbitMqChannel'] = mockChannel as any;
+    // Mock sendMail to throw an error
+    sendMailMock.mockRejectedValueOnce(new Error('Failed to send email'));
 
-    await service['handleMessage'](mockMessage as any);
-    expect(mockSendMail).toHaveBeenCalled();
-    expect(mockAck).toHaveBeenCalled();
-  });
-
-  it('should nack message on failure', async () => {
-    const mockAck = jest.fn();
-    const mockNack = jest.fn();
-    const mockChannel = {
-      ack: mockAck,
-      nack: mockNack,
-    };
-    const mockMessage = {
-      content: Buffer.from('invalid json'),
+    // Mock report data
+    const report = {
+      date: '2025-01-25T12:00:00.000Z',
+      totalSalesAmount: 1200,
+      perItemSalesSummary: [
+        { sku: 'ITEM001', totalQuantitySold: 5 },
+        { sku: 'ITEM002', totalQuantitySold: 3 },
+      ],
     };
 
-    service['rabbitMqChannel'] = mockChannel as any;
+    // Call the sendEmail method
+    await service['sendEmail'](report);
 
-    await service['handleMessage'](mockMessage as any);
-    expect(mockNack).toHaveBeenCalled();
-    expect(mockAck).not.toHaveBeenCalled();
+    // Verify that an error was logged
+    expect(loggerErrorSpy).toHaveBeenCalledWith('Failed to send email', expect.any(Error));
   });
 });

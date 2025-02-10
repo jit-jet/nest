@@ -23,7 +23,7 @@ export class Invoice {
   @Prop({ required: true })
   amount: number;
 
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true })
   reference: string;
 
   @Prop({ required: true })

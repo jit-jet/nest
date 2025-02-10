@@ -1,5 +1,12 @@
 // src/invoice/invoice.controller.ts
-import { Controller, Post, Get, Param, Body, Query } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Param,
+  Body,
+  Query,
+} from '@nestjs/common';
 import { InvoiceService } from './invoice.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { Invoice } from './schemas/invoice.schema';
@@ -15,15 +22,16 @@ export class InvoiceController {
 
   @Get(':id')
   async findById(@Param('id') id: string): Promise<Invoice> {
-    return this.invoiceService.findById(id);
+    const invoice = await this.invoiceService.findById(id);
+    return invoice;
   }
 
   @Get()
   async findAll(
-    @Query('startDate') startDate: string,
-    @Query('endDate') endDate: string,
+    @Query('startDate') startDate?: string | undefined,
+    @Query('endDate') endDate?: string | undefined,
   ): Promise<Invoice[]> {
-    const filters = startDate && endDate ? { startDate, endDate } : {};
+    const filters = { startDate, endDate };
     return this.invoiceService.findAll(filters);
   }
 }
