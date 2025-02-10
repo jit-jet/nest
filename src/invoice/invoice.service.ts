@@ -16,14 +16,13 @@ export class InvoiceService {
     private readonly invoiceModel: Model<InvoiceDocument>,
   ) {}
 
-  async create(@Body() createInvoiceDto: CreateInvoiceDto): Promise<Invoice> {
+  async create(createInvoiceDto: CreateInvoiceDto): Promise<Invoice> {
     // Check for duplicate SKUs in the items array
     const skuSet = new Set(createInvoiceDto.items.map((item) => item.sku));
-
-    if (skuSet.size != createInvoiceDto.items.length) {
+    if (skuSet.size !== createInvoiceDto.items.length) {
       throw new ConflictException('Duplicate SKU found');
     }
-    return new this.invoiceModel(createInvoiceDto).save();
+    return this.invoiceModel.create(createInvoiceDto);
   }
 
   async findById(id: string): Promise<Invoice> {
